@@ -28,13 +28,39 @@ Now let's explore the folder structure in our project, you can see that it's a b
 ![](https://cdn-images-1.medium.com/max/2000/1*EkqDMJYmHRUs4ZgZvODLXQ.png)
 
 There is a frontend folder that contains the components and styles that we can use in the UI layer of the project. The *style.css* and *theme.json* are the global styles that are applied on the todo theme under the theme folder. You can have multiple themes and can switch between them. Now coming down we can see that there are views, these are basically where we add the UI views/routes, etc.
-{% gist https://gist.github.com/MaheshBabu11/641bebeac5b1fc120c4133e010fe4b9f.js %}
+
+```java
+@SpringBootApplication
+@Theme(value = "todo")
+public class Application implements AppShellConfigurator {
+
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+}
+
+```
+
 If you take a look at the Application.java file we can see that our application is implementing ***AppShellConfigurator*** which is an interface to configure application features and the host page where the Vaadin application is running. It automatically configures the index.html page. The ***Theme*** annotation can be used to choose the theme that we want to use configured in the themes folder.
 
 **Step 3: Configuring the application**
 
 Let's remove all the existing views and add a new view called TodoView.java
-{% gist https://gist.github.com/MaheshBabu11/c3de21dd5dcd134e152a880f3dddcff8.js %}
+
+```java
+import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.router.Route;
+
+@Route("")
+public class TodoView extends VerticalLayout {
+
+    TodoView() {
+        add( new H1("Hello world!"));
+    }
+}
+```
+
 Here we extend the ***VerticalLayout*** class from vaadin. Vertical Layout places components top-to-bottom in a column. By default, it has 100% width and undefined height, meaning its width is constrained by its parent component, and its height is determined by the components it contains. The ***Route*** tag sets the path for the page/view since we are leaving it blank it is the default page. Now start the application and we can see that the page has an H1 tag with Hello world
 
 ![Hello world](https://cdn-images-1.medium.com/max/3830/1*Fs-EMtuVuRActkooxLYYRw.png)
@@ -60,8 +86,119 @@ We can configure the h2 database in the application.properties file.
     spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
 
 Now we can start adding the data classes and create the view, Refer to the files below:
-{% gist https://gist.github.com/MaheshBabu11/c6c7651786a0123e42decb4015bebf01.js %}{% gist https://gist.github.com/MaheshBabu11/cd807852d2852a1bc7409ca67cab9ef1.js %}{% gist https://gist.github.com/MaheshBabu11/6b8a50a30808134f195a071bd233b747.js %}
-In the above ***TodoView.java*** we are configuring the view. Here we have a
+```
+package com.example.application;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+
+@Entity
+public class ToDo {
+
+    @Id
+    @GeneratedValue
+    private  Long id;
+    private String task;
+    private boolean completed;
+
+    public ToDo(String task) {
+        this.task = task;
+    }
+
+    public ToDo() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getTask() {
+        return task;
+    }
+
+    public void setTask(String task) {
+        this.task = task;
+    }
+
+    public boolean isCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(boolean completed) {
+        this.completed = completed;
+    }
+}
+
+```
+```java
+package com.example.application;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ToDoRepository extends JpaRepository<ToDo,Long> {
+}
+```
+```java
+package com.example.application.views;
+
+import com.example.application.ToDo;
+import com.example.application.ToDoRepository;
+import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.Key;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.router.Route;
+
+
+@Route("")
+public class TodoView extends VerticalLayout {
+
+    private ToDoRepository repo;
+
+    public TodoView(ToDoRepository repo) {
+        this.repo = repo;
+
+        var task = new TextField();
+        var button = new Button("Add");
+        var todos = new VerticalLayout();
+
+        todos.setPadding(false);
+        button.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        button.addClickShortcut(Key.ENTER);
+        button.addClickListener(click -> {
+            var todo = repo.save(new ToDo(task.getValue()));
+            todos.add(createCheckbox(todo));
+            task.clear();
+        });
+
+        repo.findAll().forEach(todo -> todos.add(createCheckbox(todo)));
+
+        add(
+                new H1("Todo"),
+                new HorizontalLayout(task, button),
+                todos
+        );
+    }
+
+    private Component createCheckbox(ToDo todo) {
+        return new Checkbox(todo.getTask(), todo.isCompleted(), e -> {
+            todo.setCompleted(e.getValue());
+            repo.save(todo);
+        });
+    }
+}
+```
+In the above ***TodoView.java*** we are configuring the view. Here we have:
 
 1. A Text box for entering the task,
 
